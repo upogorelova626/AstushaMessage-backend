@@ -1,0 +1,67 @@
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service.js';
+import { CreateChatDto } from '../dto/create-chat.dto.js';
+
+@Injectable()
+export class ChatsService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async createNewChat(currentUserId: string, dto: CreateChatDto) {
+    const recipientId = dto.userId;
+
+    if (currentUserId === recipientId) {
+      throw new BadRequestException('Нельзя создать чат с самим собой');
+    }
+
+    const privateKey = [currentUserId, recipientId].sort().join(':');
+
+    const existingChat = await this.prisma.chat.findUnique({
+      where: {
+        privateKey,
+      },
+      include: {
+        participants: true,
+      },
+    });
+
+    if (existingChat) {
+      return existingChat;
+    }
+
+    try {
+      return await this.prisma.chat.create({
+        data: {
+          privateKey,
+          participants: {
+            create: [{ userId: currentUserId }, { userId: recipientId }],
+          },
+        },
+        include: {
+          participants: true,
+        },
+      });
+    } catch (error) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === 'P2002'
+      ) {
+        const chat = await this.prisma.chat.findUnique({
+          where: {
+            privateKey,
+          },
+          include: {
+            participants: true,
+          },
+        });
+
+        if (chat) {
+          return chat;
+        }
+      }
+
+      throw error;
+    }
+  }
+}
