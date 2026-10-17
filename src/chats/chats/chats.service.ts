@@ -69,6 +69,24 @@ export class ChatsService {
     }
   }
 
+  async getAllChats(currentUserId: string) {
+    const chats = await this.prisma.chat.findMany({
+      where: {
+        participants: {
+          some: {
+            userId: currentUserId,
+          },
+        },
+      },
+
+      include: {
+        participants: true,
+      },
+    });
+
+    return chats;
+  }
+
   async getChatById(currentUserId: string, chatId: string) {
     const chat = await this.prisma.chat.findFirst({
       where: {

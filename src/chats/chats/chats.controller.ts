@@ -37,6 +37,18 @@ export class ChatsController {
     return this.chatsService.createNewChat(request.user.id, dto);
   }
 
+  @Get()
+  @ApiOperation({
+    summary: '',
+    description: '',
+  })
+  @ApiOkResponse({
+    description: 'Чат успешно получен',
+  })
+  getAll(@Req() request: AuthenticatedRequest) {
+    return this.chatsService.getAllChats(request.user.id);
+  }
+
   @Get(':id')
   @ApiOperation({
     summary: 'Получить чат по идентификатору',
