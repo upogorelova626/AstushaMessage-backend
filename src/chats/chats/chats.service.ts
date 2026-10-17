@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { CreateChatDto } from '../dto/create-chat.dto.js';
 
@@ -63,5 +67,27 @@ export class ChatsService {
 
       throw error;
     }
+  }
+
+  async getChatById(currentUserId: string, chatId: string) {
+    const chat = await this.prisma.chat.findFirst({
+      where: {
+        id: chatId,
+        participants: {
+          some: {
+            userId: currentUserId,
+          },
+        },
+      },
+      include: {
+        participants: true,
+      },
+    });
+
+    if (!chat) {
+      throw new NotFoundException('Чат не найден');
+    }
+
+    return chat;
   }
 }

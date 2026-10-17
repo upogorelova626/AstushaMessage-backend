@@ -1,7 +1,18 @@
-import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiCookieAuth,
   ApiCreatedResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
@@ -24,5 +35,23 @@ export class ChatsController {
   })
   create(@Req() request: AuthenticatedRequest, @Body() dto: CreateChatDto) {
     return this.chatsService.createNewChat(request.user.id, dto);
+  }
+
+  @Get(':id')
+  @ApiOperation({
+    summary: 'Получить чат по идентификатору',
+    description: 'Возвращет чат, если текущий пользователь имеет к нему доступ',
+  })
+  @ApiOkResponse({
+    description: 'Чат успешно получен',
+  })
+  @ApiNotFoundResponse({
+    description: 'Чат не найден или у пользователя нет доступа',
+  })
+  getById(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.chatsService.getChatById(request.user.id, id);
   }
 }
