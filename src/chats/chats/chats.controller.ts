@@ -39,14 +39,18 @@ export class ChatsController {
 
   @Get()
   @ApiOperation({
-    summary: '',
-    description: '',
+    summary: 'Получить список чатов',
+    description:
+      'Возвращает все чаты текущего пользователя с данными участников',
   })
   @ApiOkResponse({
-    description: 'Чат успешно получен',
+    description: 'Список чатов успешно получен',
   })
   getAll(@Req() request: AuthenticatedRequest) {
-    return this.chatsService.getAllChats(request.user.id);
+    return this.chatsService.getAllChats(
+      request.user.id,
+      request.headers.cookie,
+    );
   }
 
   @Get(':id')

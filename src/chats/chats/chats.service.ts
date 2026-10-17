@@ -5,10 +5,14 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { CreateChatDto } from '../dto/create-chat.dto.js';
+import { UsersService } from '../../users/users/users.service.js';
 
 @Injectable()
 export class ChatsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly usersService: UsersService,
+  ) {}
 
   async createNewChat(currentUserId: string, dto: CreateChatDto) {
     const recipientId = dto.userId;
@@ -69,7 +73,7 @@ export class ChatsService {
     }
   }
 
-  async getAllChats(currentUserId: string) {
+  async getAllChats(currentUserId: string, cookie?: string) {
     const chats = await this.prisma.chat.findMany({
       where: {
         participants: {
@@ -78,13 +82,58 @@ export class ChatsService {
           },
         },
       },
-
-      include: {
-        participants: true,
+      select: {
+        id: true,
+        type: true,
+        title: true,
+        createdAt: true,
+        updatedAt: true,
+        participants: {
+          select: {
+            userId: true,
+          },
+        },
+      },
+      orderBy: {
+        updatedAt: 'desc',
       },
     });
 
-    return chats;
+    if (!chats.length) {
+      return [];
+    }
+
+    const userIds = [
+      ...new Set(
+        chats.flatMap((chat) =>
+          chat.participants.map((participant) => participant.userId),
+        ),
+      ),
+    ];
+
+    const users = await this.usersService.getUsersByIds(userIds, cookie);
+
+    const usersMap = new Map(users.map((user) => [user.id, user]));
+
+    return chats.map((chat) => ({
+      ...chat,
+      participants: chat.participants.map((participant) => {
+        const user = usersMap.get(participant.userId);
+
+        return {
+          ...participant,
+          user: user
+            ? {
+                id: user.id,
+                login: user.login,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                avatarUrl: user.avatarUrl,
+              }
+            : null,
+        };
+      }),
+    }));
   }
 
   async getChatById(currentUserId: string, chatId: string) {
