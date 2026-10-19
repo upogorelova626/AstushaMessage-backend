@@ -82,17 +82,8 @@ export class ChatsService {
           },
         },
       },
-      select: {
-        id: true,
-        type: true,
-        title: true,
-        createdAt: true,
-        updatedAt: true,
-        participants: {
-          select: {
-            userId: true,
-          },
-        },
+      include: {
+        participants: true,
       },
       orderBy: {
         updatedAt: 'desc',
@@ -136,7 +127,7 @@ export class ChatsService {
     }));
   }
 
-  async getChatById(currentUserId: string, chatId: string) {
+  async getChatById(currentUserId: string, chatId: string, cookie?: string) {
     const chat = await this.prisma.chat.findFirst({
       where: {
         id: chatId,
@@ -155,6 +146,32 @@ export class ChatsService {
       throw new NotFoundException('Чат не найден');
     }
 
-    return chat;
+    const userIds = [
+      ...new Set(chat.participants.map((participant) => participant.userId)),
+    ];
+
+    const users = await this.usersService.getUsersByIds(userIds, cookie);
+
+    const usersMap = new Map(users.map((user) => [user.id, user]));
+
+    return {
+      ...chat,
+      participants: chat.participants.map((participant) => {
+        const user = usersMap.get(participant.userId);
+
+        return {
+          ...participant,
+          user: user
+            ? {
+                id: user.id,
+                login: user.login,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                avatarUrl: user.avatarUrl,
+              }
+            : null,
+        };
+      }),
+    };
   }
 }

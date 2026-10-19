@@ -68,6 +68,10 @@ export class ChatsController {
     @Req() request: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.chatsService.getChatById(request.user.id, id);
+    return this.chatsService.getChatById(
+      request.user.id,
+      id,
+      request.headers.cookie,
+    );
   }
 }

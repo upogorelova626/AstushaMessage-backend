@@ -5,9 +5,10 @@ import { PrismaModule } from '../../prisma/prisma.module.js';
 import { ChatsController } from './chats.controller.js';
 import { ChatsService } from './chats.service.js';
 import { UsersService } from '../../users/users/users.service.js';
+import { HttpModule } from '@nestjs/axios';
 
 @Module({
-  imports: [PrismaModule, AuthModule],
+  imports: [PrismaModule, AuthModule, HttpModule],
   controllers: [ChatsController],
   providers: [ChatsService, UsersService],
 })
