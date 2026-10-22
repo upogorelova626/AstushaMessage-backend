@@ -34,8 +34,19 @@ model ChatParticipant {
   chatId String
   userId String
 
-  joinedAt   DateTime  @default(now())
-  lastReadAt DateTime?
+  joinedAt        DateTime  @default(now())
+  lastReadAt      DateTime?
+  isMarkedUnread  Boolean   @default(false)
+
+  isArchived Boolean @default(false)
+  isPinned   Boolean @default(false)
+  isFavorite Boolean @default(false)
+
+  isMuted    Boolean   @default(false)
+  mutedUntil DateTime?
+
+  deletedAt DateTime?
+  clearedAt DateTime?
 
   chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
 
