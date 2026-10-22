@@ -27,8 +27,17 @@ export class ChatsService {
       where: {
         privateKey,
       },
-      include: {
-        participants: true,
+      select: {
+        id: true,
+        type: true,
+        title: true,
+        createdAt: true,
+        updatedAt: true,
+        participants: {
+          select: {
+            userId: true,
+          },
+        },
       },
     });
 
@@ -44,8 +53,17 @@ export class ChatsService {
             create: [{ userId: currentUserId }, { userId: recipientId }],
           },
         },
-        include: {
-          participants: true,
+        select: {
+          id: true,
+          type: true,
+          title: true,
+          createdAt: true,
+          updatedAt: true,
+          participants: {
+            select: {
+              userId: true,
+            },
+          },
         },
       });
     } catch (error) {
@@ -59,8 +77,17 @@ export class ChatsService {
           where: {
             privateKey,
           },
-          include: {
-            participants: true,
+          select: {
+            id: true,
+            type: true,
+            title: true,
+            createdAt: true,
+            updatedAt: true,
+            participants: {
+              select: {
+                userId: true,
+              },
+            },
           },
         });
 
@@ -82,8 +109,24 @@ export class ChatsService {
           },
         },
       },
-      include: {
-        participants: true,
+      select: {
+        id: true,
+        type: true,
+        title: true,
+        createdAt: true,
+        updatedAt: true,
+        participants: {
+          select: {
+            userId: true,
+            isArchived: true,
+            isPinned: true,
+            isFavorite: true,
+            isMuted: true,
+            mutedUntil: true,
+            isMarkedUnread: true,
+            lastReadAt: true,
+          },
+        },
       },
       orderBy: {
         updatedAt: 'desc',
@@ -106,25 +149,42 @@ export class ChatsService {
 
     const usersMap = new Map(users.map((user) => [user.id, user]));
 
-    return chats.map((chat) => ({
-      ...chat,
-      participants: chat.participants.map((participant) => {
-        const user = usersMap.get(participant.userId);
+    return chats.map((chat) => {
+      const currentParticipant = chat.participants.find(
+        (participant) => participant.userId === currentUserId,
+      );
 
-        return {
-          ...participant,
-          user: user
-            ? {
-                id: user.id,
-                login: user.login,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                avatarUrl: user.avatarUrl,
-              }
-            : null,
-        };
-      }),
-    }));
+      return {
+        ...chat,
+        settings: currentParticipant
+          ? {
+              isArchived: currentParticipant.isArchived,
+              isPinned: currentParticipant.isPinned,
+              isFavorite: currentParticipant.isFavorite,
+              isMuted: currentParticipant.isMuted,
+              mutedUntil: currentParticipant.mutedUntil,
+              isMarkedUnread: currentParticipant.isMarkedUnread,
+              lastReadAt: currentParticipant.lastReadAt,
+            }
+          : null,
+        participants: chat.participants.map((participant) => {
+          const user = usersMap.get(participant.userId);
+
+          return {
+            userId: participant.userId,
+            user: user
+              ? {
+                  id: user.id,
+                  login: user.login,
+                  firstName: user.firstName,
+                  lastName: user.lastName,
+                  avatarUrl: user.avatarUrl,
+                }
+              : null,
+          };
+        }),
+      };
+    });
   }
 
   async getChatById(currentUserId: string, chatId: string, cookie?: string) {
@@ -137,8 +197,24 @@ export class ChatsService {
           },
         },
       },
-      include: {
-        participants: true,
+      select: {
+        id: true,
+        type: true,
+        title: true,
+        createdAt: true,
+        updatedAt: true,
+        participants: {
+          select: {
+            userId: true,
+            isArchived: true,
+            isPinned: true,
+            isFavorite: true,
+            isMuted: true,
+            mutedUntil: true,
+            isMarkedUnread: true,
+            lastReadAt: true,
+          },
+        },
       },
     });
 
@@ -154,13 +230,28 @@ export class ChatsService {
 
     const usersMap = new Map(users.map((user) => [user.id, user]));
 
+    const currentParticipant = chat.participants.find(
+      (participant) => participant.userId === currentUserId,
+    );
+
     return {
       ...chat,
+      settings: currentParticipant
+        ? {
+            isArchived: currentParticipant.isArchived,
+            isPinned: currentParticipant.isPinned,
+            isFavorite: currentParticipant.isFavorite,
+            isMuted: currentParticipant.isMuted,
+            mutedUntil: currentParticipant.mutedUntil,
+            isMarkedUnread: currentParticipant.isMarkedUnread,
+            lastReadAt: currentParticipant.lastReadAt,
+          }
+        : null,
       participants: chat.participants.map((participant) => {
         const user = usersMap.get(participant.userId);
 
         return {
-          ...participant,
+          userId: participant.userId,
           user: user
             ? {
                 id: user.id,

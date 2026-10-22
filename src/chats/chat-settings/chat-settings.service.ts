@@ -5,18 +5,23 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { MuteDuration } from '../dto/mute.chat.dto.js';
+import { ChatsService } from '../chats/chats.service.js';
 
 type ChatSetting = 'isArchived' | 'isPinned' | 'isFavorite';
 
 @Injectable()
 export class ChatSettingsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly chat: ChatsService,
+  ) {}
 
   async updateChatSetting(
     currentUserId: string,
     chatId: string,
     setting: ChatSetting,
     value: boolean,
+    cookie?: string,
   ) {
     const participant = await this.prisma.chatParticipant.findUnique({
       where: {
@@ -31,7 +36,7 @@ export class ChatSettingsService {
       throw new NotFoundException('Чат не найден');
     }
 
-    return this.prisma.chatParticipant.update({
+    await this.prisma.chatParticipant.update({
       where: {
         chatId_userId: {
           chatId,
@@ -42,6 +47,8 @@ export class ChatSettingsService {
         [setting]: value,
       },
     });
+
+    return this.chat.getChatById(currentUserId, chatId, cookie);
   }
 
   async muteChat(
@@ -49,6 +56,7 @@ export class ChatSettingsService {
     chatId: string,
     isMuted: boolean,
     duration?: MuteDuration,
+    cookie?: string,
   ) {
     const participant = await this.prisma.chatParticipant.findUnique({
       where: {
@@ -87,7 +95,7 @@ export class ChatSettingsService {
       }
     }
 
-    return this.prisma.chatParticipant.update({
+    await this.prisma.chatParticipant.update({
       where: {
         chatId_userId: {
           chatId,
@@ -99,5 +107,7 @@ export class ChatSettingsService {
         mutedUntil,
       },
     });
+
+    return this.chat.getChatById(currentUserId, chatId, cookie);
   }
 }
