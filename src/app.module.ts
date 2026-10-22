@@ -6,6 +6,7 @@ import { AppService } from './app.service.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { ChatsModule } from './chats/chats/chats.module.js';
 import { ChatSettingsModule } from './chats/chat-settings/chat-settings.module.js';
+import { ChatManagenentModule } from './chats/chat-managenent/chat-managenent.module.js';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { ChatSettingsModule } from './chats/chat-settings/chat-settings.module.j
     PrismaModule,
     ChatsModule,
     ChatSettingsModule,
+    ChatManagenentModule,
   ],
   controllers: [AppController],
   providers: [AppService],

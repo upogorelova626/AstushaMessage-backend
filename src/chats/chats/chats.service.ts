@@ -106,6 +106,7 @@ export class ChatsService {
         participants: {
           some: {
             userId: currentUserId,
+            isArchived: false,
           },
         },
       },
