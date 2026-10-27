@@ -7,6 +7,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
 import { ChatsModule } from './chats/chats/chats.module.js';
 import { ChatSettingsModule } from './chats/chat-settings/chat-settings.module.js';
 import { ChatManagenentModule } from './chats/chat-managenent/chat-managenent.module.js';
+import { MessageModule } from './message/message/message.module.js';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { ChatManagenentModule } from './chats/chat-managenent/chat-managenent.mo
     ChatsModule,
     ChatSettingsModule,
     ChatManagenentModule,
+    MessageModule,
   ],
   controllers: [AppController],
   providers: [AppService],
