@@ -12,7 +12,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard.js';
 import type { AuthenticatedRequest } from '../../auth/types/authenticated-request.type.js';
 import { ChatManagementService } from './chat-management.service.js';
 
-@Controller('chat-managenent')
+@Controller('chat-management')
 @ApiTags('Chat Management')
 @ApiCookieAuth('accessToken')
 @ApiParam({

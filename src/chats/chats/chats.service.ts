@@ -14,7 +14,11 @@ export class ChatsService {
     private readonly usersService: UsersService,
   ) {}
 
-  async createNewChat(currentUserId: string, dto: CreateChatDto) {
+  async createNewChat(
+    currentUserId: string,
+    dto: CreateChatDto,
+    cookie?: string,
+  ) {
     const recipientId = dto.userId;
 
     if (currentUserId === recipientId) {
@@ -29,24 +33,17 @@ export class ChatsService {
       },
       select: {
         id: true,
-        type: true,
-        title: true,
-        createdAt: true,
-        updatedAt: true,
-        participants: {
-          select: {
-            userId: true,
-          },
-        },
       },
     });
 
     if (existingChat) {
-      return existingChat;
+      await this.restoreChat(currentUserId, existingChat.id);
+
+      return this.getChatById(currentUserId, existingChat.id, cookie);
     }
 
     try {
-      return await this.prisma.chat.create({
+      const chat = await this.prisma.chat.create({
         data: {
           privateKey,
           participants: {
@@ -55,17 +52,10 @@ export class ChatsService {
         },
         select: {
           id: true,
-          type: true,
-          title: true,
-          createdAt: true,
-          updatedAt: true,
-          participants: {
-            select: {
-              userId: true,
-            },
-          },
         },
       });
+
+      return this.getChatById(currentUserId, chat.id, cookie);
     } catch (error) {
       if (
         typeof error === 'object' &&
@@ -79,20 +69,13 @@ export class ChatsService {
           },
           select: {
             id: true,
-            type: true,
-            title: true,
-            createdAt: true,
-            updatedAt: true,
-            participants: {
-              select: {
-                userId: true,
-              },
-            },
           },
         });
 
         if (chat) {
-          return chat;
+          await this.restoreChat(currentUserId, chat.id);
+
+          return this.getChatById(currentUserId, chat.id, cookie);
         }
       }
 
@@ -107,6 +90,7 @@ export class ChatsService {
           some: {
             userId: currentUserId,
             isArchived: false,
+            deletedAt: null,
           },
         },
       },
@@ -265,5 +249,22 @@ export class ChatsService {
         };
       }),
     };
+  }
+
+  private async restoreChat(
+    currentUserId: string,
+    chatId: string,
+  ): Promise<void> {
+    await this.prisma.chatParticipant.update({
+      where: {
+        chatId_userId: {
+          chatId,
+          userId: currentUserId,
+        },
+      },
+      data: {
+        deletedAt: null,
+      },
+    });
   }
 }
