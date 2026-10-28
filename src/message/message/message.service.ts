@@ -5,17 +5,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { UsersService } from '../../users/users/users.service.js';
 import { CreateMessageDto } from '../dto/create-message.dto.js';
 import { Message } from '../../generated/prisma/client.js';
 import { EditMessageDto } from '../dto/edit-message.dto.js';
 
 @Injectable()
 export class MessageService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly usersService: UsersService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async sendMessage(
     userId: string,
