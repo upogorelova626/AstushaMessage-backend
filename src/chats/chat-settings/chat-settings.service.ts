@@ -7,7 +7,7 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import { MuteDuration } from '../dto/mute.chat.dto.js';
 import { ChatsService } from '../chats/chats.service.js';
 
-type ChatSetting = 'isArchived' | 'isPinned' | 'isFavorite';
+type ChatSetting = 'isArchived' | 'isPinned' | 'isFavorite' | 'isMarkedUnread';
 
 @Injectable()
 export class ChatSettingsService {

@@ -23,6 +23,7 @@ import { PinChatDto } from '../dto/pine.chat.dto.js';
 import { FavoriteChatDto } from '../dto/favourite.chat.dto.js';
 import { MuteChatDto } from '../dto/mute.chat.dto.js';
 import { AuthenticatedRequest } from '../../auth/types/authenticated-request.type.js';
+import { ReadChatDto } from '../dto/read-chat.dto.js';
 
 @Controller('chat-settings')
 @ApiTags('Chat Settings')
@@ -68,6 +69,33 @@ export class ChatSettingsController {
       chatId,
       'isArchived',
       dto.isArchived,
+      request.headers.cookie,
+    );
+  }
+
+  @Patch(':chatId/read')
+  @ApiOperation({
+    summary: 'Пометить чат как прочитанный или непрочитанный',
+  })
+  @ApiBody({ type: ReadChatDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Статус прочитанности успешно обновлён',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Некорректные данные запроса',
+  })
+  markAsReadOrUnreadChat(
+    @Req() request: AuthenticatedRequest & { user: { id: string } },
+    @Param('chatId', ParseUUIDPipe) chatId: string,
+    @Body() dto: ReadChatDto,
+  ) {
+    return this.chatSettingsService.updateChatSetting(
+      request.user.id,
+      chatId,
+      'isMarkedUnread',
+      dto.isMarkedUnread,
       request.headers.cookie,
     );
   }
