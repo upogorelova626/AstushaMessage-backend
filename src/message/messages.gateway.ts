@@ -9,14 +9,16 @@ import {
   OnGatewayInit,
   SubscribeMessage,
   WebSocketGateway,
+  WebSocketServer,
   WsException,
 } from '@nestjs/websockets';
+import { isUUID } from 'class-validator';
 import { parseCookie } from 'cookie';
 import type { Server, Socket } from 'socket.io';
 
 import type { AccessTokenPayload } from '../auth/types/access-token-payload.type.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { isUUID } from 'class-validator';
+import type { Message } from '../generated/prisma/client.js';
 
 @WebSocketGateway({
   cors: {
@@ -29,6 +31,9 @@ export class MessagesGateway
 {
   private readonly logger = new Logger(MessagesGateway.name);
 
+  @WebSocketServer()
+  private server!: Server;
+
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
@@ -39,7 +44,6 @@ export class MessagesGateway
     server.use(async (client: Socket, next) => {
       try {
         const cookies = parseCookie(client.handshake.headers.cookie ?? '');
-
         const accessToken = cookies.accessToken;
 
         if (!accessToken) {
@@ -117,5 +121,9 @@ export class MessagesGateway
     await client.leave(`chat:${chatId}`);
 
     this.logger.log(`Socket ${client.id} покинул комнату chat:${chatId}`);
+  }
+
+  emitNewMessage(message: Message): void {
+    this.server.to(`chat:${message.chatId}`).emit('message:new', message);
   }
 }

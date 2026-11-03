@@ -32,6 +32,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard.js';
 import { MessageService } from './message.service.js';
 import type { AuthenticatedRequest } from '../../auth/types/authenticated-request.type.js';
 import { EditMessageDto } from '../dto/edit-message.dto.js';
+import { GetMessagesDto } from '../dto/get-messages.dto.js';
 
 @ApiTags('Messages')
 @ApiCookieAuth('accessToken')
@@ -68,6 +69,22 @@ export class MessageController {
     @Body() dto: CreateMessageDto,
   ) {
     return this.messageService.sendMessage(request.user.id, chatId, dto);
+  }
+
+  @Post('list')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Получить сообщения',
+  })
+  @ApiOkResponse({
+    description: 'Сообщения успешно получены',
+  })
+  getMessages(
+    @Req() request: AuthenticatedRequest,
+    @Param('chatId', ParseUUIDPipe) chatId: string,
+    @Body() dto: GetMessagesDto,
+  ) {
+    return this.messageService.getMessages(request.user.id, chatId, dto.cursor);
   }
 
   @Get(':messageId')

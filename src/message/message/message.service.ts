@@ -8,10 +8,15 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import { CreateMessageDto } from '../dto/create-message.dto.js';
 import { Message } from '../../generated/prisma/client.js';
 import { EditMessageDto } from '../dto/edit-message.dto.js';
+import { GetMessagesResponse } from '../dto/messages.dto.js';
+import { MessagesGateway } from '../messages.gateway.js';
 
 @Injectable()
 export class MessageService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly messagesGateway: MessagesGateway,
+  ) {}
 
   async sendMessage(
     userId: string,
@@ -52,7 +57,44 @@ export class MessageService {
       }),
     ]);
 
+    this.messagesGateway.emitNewMessage(message);
+
     return message;
+  }
+
+  async getMessages(
+    userId: string,
+    chatId: string,
+    cursor?: null | string,
+  ): Promise<GetMessagesResponse> {
+    const participant = await this.prisma.chatParticipant.findUnique({
+      where: { chatId_userId: { chatId, userId } },
+    });
+
+    if (!participant) {
+      throw new NotFoundException('Чат не найден');
+    }
+
+    const messages = await this.prisma.message.findMany({
+      where: {
+        chatId,
+        deletedAt: null,
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: 16,
+      skip: cursor ? 1 : 0,
+      cursor: cursor ? { id: cursor } : undefined,
+    });
+
+    const hasMore = messages.length > 15;
+    const items = messages.slice(0, 15);
+    const nextCursor = hasMore ? items[items.length - 1].id : null;
+
+    return {
+      items,
+      hasMore,
+      nextCursor,
+    };
   }
 
   async getMessage(
