@@ -4,11 +4,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { CreateMessageDto } from '../dto/create-message.dto.js';
-import { Message } from '../../generated/prisma/client.js';
-import { EditMessageDto } from '../dto/edit-message.dto.js';
-import { GetMessagesResponse } from '../dto/messages.dto.js';
+import type { Message } from '../../generated/prisma/client.js';
+import type { CreateMessageDto } from '../dto/create-message.dto.js';
+import type { EditMessageDto } from '../dto/edit-message.dto.js';
+import type { GetMessagesResponse } from '../dto/messages.dto.js';
 import { MessagesGateway } from '../messages.gateway.js';
 
 @Injectable()
@@ -23,18 +24,7 @@ export class MessageService {
     chatId: string,
     dto: CreateMessageDto,
   ): Promise<Message> {
-    const participant = await this.prisma.chatParticipant.findUnique({
-      where: {
-        chatId_userId: {
-          chatId,
-          userId,
-        },
-      },
-    });
-
-    if (!participant) {
-      throw new NotFoundException('Чат не найден');
-    }
+    await this.getChatParticipant(userId, chatId);
 
     const text = dto.text.trim();
 
@@ -50,7 +40,6 @@ export class MessageService {
           text,
         },
       }),
-
       this.prisma.chat.update({
         where: { id: chatId },
         data: { updatedAt: new Date() },
@@ -65,21 +54,38 @@ export class MessageService {
   async getMessages(
     userId: string,
     chatId: string,
-    cursor?: null | string,
+    cursor?: string | null,
   ): Promise<GetMessagesResponse> {
-    const participant = await this.prisma.chatParticipant.findUnique({
-      where: { chatId_userId: { chatId, userId } },
-    });
+    const participant = await this.getChatParticipant(userId, chatId);
 
-    if (!participant) {
-      throw new NotFoundException('Чат не найден');
+    const where = {
+      chatId,
+      deletedAt: null,
+      ...(participant.clearedAt && {
+        createdAt: {
+          gt: participant.clearedAt,
+        },
+      }),
+    };
+
+    if (cursor) {
+      const cursorMessage = await this.prisma.message.findFirst({
+        where: {
+          ...where,
+          id: cursor,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!cursorMessage) {
+        throw new BadRequestException('Некорректный курсор');
+      }
     }
 
     const messages = await this.prisma.message.findMany({
-      where: {
-        chatId,
-        deletedAt: null,
-      },
+      where,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: 21,
       skip: cursor ? 1 : 0,
@@ -102,18 +108,7 @@ export class MessageService {
     chatId: string,
     messageId: string,
   ): Promise<Message> {
-    const participant = await this.prisma.chatParticipant.findUnique({
-      where: {
-        chatId_userId: {
-          chatId,
-          userId,
-        },
-      },
-    });
-
-    if (!participant) {
-      throw new NotFoundException('Чат не найден');
-    }
+    const participant = await this.getChatParticipant(userId, chatId);
 
     const message = await this.prisma.message.findFirst({
       where: {
@@ -141,18 +136,7 @@ export class MessageService {
     messageId: string,
     dto: EditMessageDto,
   ): Promise<Message> {
-    const participant = await this.prisma.chatParticipant.findUnique({
-      where: {
-        chatId_userId: {
-          chatId,
-          userId,
-        },
-      },
-    });
-
-    if (!participant) {
-      throw new NotFoundException('Сообщение не найдено');
-    }
+    const participant = await this.getChatParticipant(userId, chatId);
 
     const text = dto.text.trim();
 
@@ -165,11 +149,16 @@ export class MessageService {
         id: messageId,
         chatId,
         deletedAt: null,
+        ...(participant.clearedAt && {
+          createdAt: {
+            gt: participant.clearedAt,
+          },
+        }),
       },
     });
 
     if (!message) {
-      throw new NotFoundException('Чат не найден');
+      throw new NotFoundException('Сообщение не найдено');
     }
 
     if (message.senderId !== userId) {
@@ -178,7 +167,7 @@ export class MessageService {
       );
     }
 
-    const newMessage = await this.prisma.message.update({
+    return this.prisma.message.update({
       where: {
         id: messageId,
       },
@@ -187,8 +176,38 @@ export class MessageService {
         text,
       },
     });
+  }
 
-    return newMessage;
+  async searchMessage(
+    userId: string,
+    chatId: string,
+    query: string,
+  ): Promise<Message[]> {
+    const participant = await this.getChatParticipant(userId, chatId);
+
+    const text = query.trim();
+    if (!text) {
+      throw new BadRequestException('Поисковый запрос не может быть пустым');
+    }
+
+    return this.prisma.message.findMany({
+      where: {
+        chatId,
+        deletedAt: null,
+        ...(participant.clearedAt && {
+          createdAt: {
+            gt: participant.clearedAt,
+          },
+        }),
+        text: {
+          contains: text,
+          mode: 'insensitive',
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
   }
 
   async deleteMessage(
@@ -196,24 +215,18 @@ export class MessageService {
     chatId: string,
     messageId: string,
   ): Promise<void> {
-    const participant = await this.prisma.chatParticipant.findUnique({
-      where: {
-        chatId_userId: {
-          chatId,
-          userId,
-        },
-      },
-    });
-
-    if (!participant) {
-      throw new NotFoundException('Чат не найден');
-    }
+    const participant = await this.getChatParticipant(userId, chatId);
 
     const message = await this.prisma.message.findFirst({
       where: {
         id: messageId,
         chatId,
         deletedAt: null,
+        ...(participant.clearedAt && {
+          createdAt: {
+            gt: participant.clearedAt,
+          },
+        }),
       },
     });
 
@@ -233,5 +246,22 @@ export class MessageService {
         deletedAt: new Date(),
       },
     });
+  }
+
+  private async getChatParticipant(userId: string, chatId: string) {
+    const participant = await this.prisma.chatParticipant.findUnique({
+      where: {
+        chatId_userId: {
+          chatId,
+          userId,
+        },
+      },
+    });
+
+    if (!participant || participant.deletedAt) {
+      throw new NotFoundException('Чат не найден');
+    }
+
+    return participant;
   }
 }

@@ -33,6 +33,7 @@ import { MessageService } from './message.service.js';
 import type { AuthenticatedRequest } from '../../auth/types/authenticated-request.type.js';
 import { EditMessageDto } from '../dto/edit-message.dto.js';
 import { GetMessagesDto } from '../dto/get-messages.dto.js';
+import { SearchMessagesDto } from '../dto/search-message.dto.js';
 
 @ApiTags('Messages')
 @ApiCookieAuth('accessToken')
@@ -127,6 +128,26 @@ export class MessageController {
       chatId,
       messageId,
       dto,
+    );
+  }
+
+  @Post('search')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Поиск сообщений в чате',
+  })
+  @ApiOkResponse({
+    description: 'Сообщения успешно найдены',
+  })
+  searchMessages(
+    @Req() request: AuthenticatedRequest,
+    @Param('chatId', ParseUUIDPipe) chatId: string,
+    @Body() dto: SearchMessagesDto,
+  ) {
+    return this.messageService.searchMessage(
+      request.user.id,
+      chatId,
+      dto.query,
     );
   }
 
