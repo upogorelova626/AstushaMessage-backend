@@ -80,14 +80,14 @@ export class MessageService {
         chatId,
         deletedAt: null,
       },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: 16,
       skip: cursor ? 1 : 0,
       cursor: cursor ? { id: cursor } : undefined,
     });
 
     const hasMore = messages.length > 15;
-    const items = messages.slice(0, 15);
+    const items = messages.slice(0, 15).reverse();
     const nextCursor = hasMore ? items[items.length - 1].id : null;
 
     return {
