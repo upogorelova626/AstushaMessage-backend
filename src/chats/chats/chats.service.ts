@@ -94,12 +94,22 @@ export class ChatsService {
           },
         },
       },
+
       select: {
         id: true,
         type: true,
         title: true,
         createdAt: true,
         updatedAt: true,
+
+        messages: {
+          where: {
+            deletedAt: null,
+          },
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          take: 1,
+        },
+
         participants: {
           select: {
             userId: true,
@@ -139,8 +149,13 @@ export class ChatsService {
         (participant) => participant.userId === currentUserId,
       );
 
+      const { messages, ...chatData } = chat;
+
       return {
-        ...chat,
+        ...chatData,
+
+        lastMessage: messages[0] ?? null,
+
         settings: currentParticipant
           ? {
               isArchived: currentParticipant.isArchived,
@@ -152,6 +167,7 @@ export class ChatsService {
               lastReadAt: currentParticipant.lastReadAt,
             }
           : null,
+
         participants: chat.participants.map((participant) => {
           const user = usersMap.get(participant.userId);
 
