@@ -81,14 +81,14 @@ export class MessageService {
         deletedAt: null,
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: 16,
+      take: 21,
       skip: cursor ? 1 : 0,
       cursor: cursor ? { id: cursor } : undefined,
     });
 
-    const hasMore = messages.length > 15;
-    const items = messages.slice(0, 15).reverse();
-    const nextCursor = hasMore ? items[items.length - 1].id : null;
+    const hasMore = messages.length > 20;
+    const items = messages.slice(0, 20).reverse();
+    const nextCursor = hasMore ? items[0].id : null;
 
     return {
       items,
