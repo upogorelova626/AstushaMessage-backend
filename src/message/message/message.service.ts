@@ -182,32 +182,63 @@ export class MessageService {
     userId: string,
     chatId: string,
     query: string,
-  ): Promise<Message[]> {
+    cursor?: string | null,
+  ): Promise<GetMessagesResponse> {
     const participant = await this.getChatParticipant(userId, chatId);
 
     const text = query.trim();
+
     if (!text) {
       throw new BadRequestException('Поисковый запрос не может быть пустым');
     }
 
-    return this.prisma.message.findMany({
-      where: {
-        chatId,
-        deletedAt: null,
-        ...(participant.clearedAt && {
-          createdAt: {
-            gt: participant.clearedAt,
-          },
-        }),
-        text: {
-          contains: text,
-          mode: 'insensitive',
+    const where = {
+      chatId,
+      deletedAt: null,
+      ...(participant.clearedAt && {
+        createdAt: {
+          gt: participant.clearedAt,
         },
+      }),
+      text: {
+        contains: text,
+        mode: 'insensitive' as const,
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+    };
+
+    if (cursor) {
+      const cursorMessage = await this.prisma.message.findFirst({
+        where: {
+          ...where,
+          id: cursor,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!cursorMessage) {
+        throw new BadRequestException('Некорректный курсор');
+      }
+    }
+
+    const messages = await this.prisma.message.findMany({
+      where,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: 21,
+      skip: cursor ? 1 : 0,
+      cursor: cursor ? { id: cursor } : undefined,
     });
+
+    const hasMore = messages.length > 20;
+    const items = messages.slice(0, 20);
+    const nextCursor = hasMore ? items[items.length - 1].id : null;
+
+    return {
+      items,
+      hasMore,
+      nextCursor,
+    };
   }
 
   async deleteMessage(

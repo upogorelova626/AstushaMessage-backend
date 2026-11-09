@@ -148,6 +148,7 @@ export class MessageController {
       request.user.id,
       chatId,
       dto.query,
+      dto.cursor,
     );
   }
 
