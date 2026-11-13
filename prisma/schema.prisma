@@ -60,11 +60,29 @@ model Message {
   senderId String
   text     String
 
+  isPinned    Boolean   @default(false)
+  pinnedAt    DateTime?
+  pinnedUntil DateTime?
+  pinnedById  String?
+
   createdAt DateTime  @default(now())
   editedAt  DateTime?
   deletedAt DateTime?
 
-  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chat      Chat              @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  favorites MessageFavorite[]
 
   @@index([chatId, createdAt])
+}
+
+model MessageFavorite {
+  messageId String
+  userId    String
+
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, userId])
+  @@index([userId])
 }
