@@ -103,6 +103,26 @@ export class MessageService {
     };
   }
 
+  async getPinnedMessages(userId: string, chatId: string) {
+    await this.getChatParticipant(userId, chatId);
+
+    return this.prisma.messagePin.findMany({
+      where: {
+        chatId,
+        message: {
+          deletedAt: null,
+        },
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+      },
+      include: {
+        message: true,
+      },
+      orderBy: {
+        pinnedAt: 'desc',
+      },
+    });
+  }
+
   async getMessage(
     userId: string,
     chatId: string,

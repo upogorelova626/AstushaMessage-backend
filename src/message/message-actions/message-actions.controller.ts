@@ -26,6 +26,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard.js';
 import type { AuthenticatedRequest } from '../../auth/types/authenticated-request.type.js';
 import { PinMessageDto } from '../dto/pin-message.dto.js';
 import { MessageActionsService } from './message-actions.service.js';
+import { UpdateMessageFavoriteDto } from '../dto/update-message-favorite.dto.js';
 
 @ApiTags('Message Actions')
 @ApiCookieAuth('accessToken')
@@ -73,6 +74,27 @@ export class MessageActionsController {
       chatId,
       messageId,
       dto.duration,
+    );
+  }
+
+  @Patch(':messageId/favorite')
+  @ApiOperation({
+    summary: 'Изменить статус избранного сообщения',
+  })
+  @ApiOkResponse({
+    description: 'Статус избранного успешно изменён',
+  })
+  updateMessageFavoriteStatus(
+    @Req() request: AuthenticatedRequest,
+    @Param('chatId', ParseUUIDPipe) chatId: string,
+    @Param('messageId', ParseUUIDPipe) messageId: string,
+    @Body() dto: UpdateMessageFavoriteDto,
+  ) {
+    return this.messageActionsService.updateMessageFavoriteStatus(
+      request.user.id,
+      chatId,
+      messageId,
+      dto.isFavorite,
     );
   }
 

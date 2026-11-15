@@ -88,6 +88,18 @@ export class MessageController {
     return this.messageService.getMessages(request.user.id, chatId, dto.cursor);
   }
 
+  @Get('pinned')
+  @ApiOperation({ summary: 'Получить закреплённые сообщения' })
+  @ApiOkResponse({
+    description: 'Закреплённые сообщения успешно получены',
+  })
+  getPinnedMessages(
+    @Req() request: AuthenticatedRequest,
+    @Param('chatId', ParseUUIDPipe) chatId: string,
+  ) {
+    return this.messageService.getPinnedMessages(request.user.id, chatId);
+  }
+
   @Get(':messageId')
   @ApiOperation({ summary: 'Получить сообщение по ID' })
   @ApiOkResponse({ description: 'Сообщение успешно получено' })

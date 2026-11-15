@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { PinMessageDuration } from '../dto/pin-message.dto.js';
 
@@ -27,15 +32,49 @@ export class MessageActionsService {
     }
 
     const now = new Date();
+    const pinnedUntil = this.calculatePinnedUntil(duration, now);
 
-    return this.prisma.message.update({
-      where: { id: message.id },
-      data: {
-        isPinned: true,
-        pinnedAt: now,
-        pinnedUntil: this.calculatePinnedUntil(duration, now),
-        pinnedById: userId,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const pinnedCount = await tx.messagePin.count({
+        where: {
+          chatId,
+          messageId: { not: messageId },
+          expiresAt: { gt: now },
+          message: {
+            deletedAt: null,
+          },
+        },
+      });
+
+      if (pinnedCount >= 4) {
+        throw new BadRequestException('Нельзя закрепить больше 4 сообщений');
+      }
+
+      await tx.messagePin.upsert({
+        where: { messageId },
+        create: {
+          messageId,
+          chatId,
+          pinnedById: userId,
+          pinnedAt: now,
+          expiresAt: pinnedUntil,
+        },
+        update: {
+          pinnedById: userId,
+          pinnedAt: now,
+          expiresAt: pinnedUntil,
+        },
+      });
+
+      return tx.message.update({
+        where: { id: message.id },
+        data: {
+          isPinned: true,
+          pinnedAt: now,
+          pinnedUntil,
+          pinnedById: userId,
+        },
+      });
     });
   }
 
@@ -54,15 +93,79 @@ export class MessageActionsService {
       throw new NotFoundException('Сообщение не найдено');
     }
 
-    return this.prisma.message.update({
-      where: { id: message.id, chatId, deletedAt: null },
-      data: {
-        isPinned: false,
-        pinnedAt: null,
-        pinnedUntil: null,
-        pinnedById: null,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      await tx.messagePin.deleteMany({
+        where: {
+          messageId: message.id,
+          chatId,
+        },
+      });
+
+      return tx.message.update({
+        where: {
+          id: message.id,
+          deletedAt: null,
+        },
+        data: {
+          isPinned: false,
+          pinnedAt: null,
+          pinnedUntil: null,
+          pinnedById: null,
+        },
+      });
     });
+  }
+
+  async updateMessageFavoriteStatus(
+    userId: string,
+    chatId: string,
+    messageId: string,
+    isFavorite: boolean,
+  ) {
+    await this.getChatParticipant(userId, chatId);
+
+    const message = await this.prisma.message.findFirst({
+      where: {
+        id: messageId,
+        chatId,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+
+    if (!message) {
+      throw new NotFoundException('Сообщение не найдено');
+    }
+
+    const where = {
+      messageId_userId: {
+        messageId,
+        userId,
+      },
+    };
+
+    if (isFavorite) {
+      await this.prisma.messageFavorite.upsert({
+        where,
+        create: {
+          messageId,
+          userId,
+        },
+        update: {},
+      });
+    } else {
+      await this.prisma.messageFavorite.deleteMany({
+        where: {
+          messageId,
+          userId,
+        },
+      });
+    }
+
+    return {
+      messageId,
+      isFavorite,
+    };
   }
 
   private calculatePinnedUntil(duration: PinMessageDuration, now: Date): Date {
