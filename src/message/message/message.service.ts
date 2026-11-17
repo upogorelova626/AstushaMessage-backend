@@ -12,6 +12,10 @@ import type { EditMessageDto } from '../dto/edit-message.dto.js';
 import type { GetMessagesResponse } from '../dto/messages.dto.js';
 import { MessagesGateway } from '../messages.gateway.js';
 
+type MessageWithFavorite = Message & {
+  isFavorite: boolean;
+};
+
 @Injectable()
 export class MessageService {
   constructor(
@@ -23,7 +27,7 @@ export class MessageService {
     userId: string,
     chatId: string,
     dto: CreateMessageDto,
-  ): Promise<Message> {
+  ): Promise<MessageWithFavorite> {
     await this.getChatParticipant(userId, chatId);
 
     const text = dto.text.trim();
@@ -46,9 +50,14 @@ export class MessageService {
       }),
     ]);
 
-    this.messagesGateway.emitNewMessage(message);
+    const result = {
+      ...message,
+      isFavorite: false,
+    };
 
-    return message;
+    this.messagesGateway.emitNewMessage(result);
+
+    return result;
   }
 
   async getMessages(
@@ -86,6 +95,12 @@ export class MessageService {
 
     const messages = await this.prisma.message.findMany({
       where,
+      include: {
+        favorites: {
+          where: { userId },
+          select: { userId: true },
+        },
+      },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: 21,
       skip: cursor ? 1 : 0,
@@ -93,7 +108,12 @@ export class MessageService {
     });
 
     const hasMore = messages.length > 20;
-    const items = messages.slice(0, 20).reverse();
+
+    const items = messages
+      .slice(0, 20)
+      .reverse()
+      .map((message) => this.mapMessageWithFavorite(message));
+
     const nextCursor = hasMore ? items[0].id : null;
 
     return {
@@ -106,7 +126,7 @@ export class MessageService {
   async getPinnedMessages(userId: string, chatId: string) {
     await this.getChatParticipant(userId, chatId);
 
-    return this.prisma.messagePin.findMany({
+    const pinnedMessages = await this.prisma.messagePin.findMany({
       where: {
         chatId,
         message: {
@@ -115,19 +135,31 @@ export class MessageService {
         OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
       },
       include: {
-        message: true,
+        message: {
+          include: {
+            favorites: {
+              where: { userId },
+              select: { userId: true },
+            },
+          },
+        },
       },
       orderBy: {
         pinnedAt: 'desc',
       },
     });
+
+    return pinnedMessages.map(({ message, ...pin }) => ({
+      ...pin,
+      message: this.mapMessageWithFavorite(message),
+    }));
   }
 
   async getMessage(
     userId: string,
     chatId: string,
     messageId: string,
-  ): Promise<Message> {
+  ): Promise<MessageWithFavorite> {
     const participant = await this.getChatParticipant(userId, chatId);
 
     const message = await this.prisma.message.findFirst({
@@ -141,13 +173,19 @@ export class MessageService {
           },
         }),
       },
+      include: {
+        favorites: {
+          where: { userId },
+          select: { userId: true },
+        },
+      },
     });
 
     if (!message) {
       throw new NotFoundException('Сообщение не найдено');
     }
 
-    return message;
+    return this.mapMessageWithFavorite(message);
   }
 
   async editMessage(
@@ -155,7 +193,7 @@ export class MessageService {
     chatId: string,
     messageId: string,
     dto: EditMessageDto,
-  ): Promise<Message> {
+  ): Promise<MessageWithFavorite> {
     const participant = await this.getChatParticipant(userId, chatId);
 
     const text = dto.text.trim();
@@ -187,7 +225,7 @@ export class MessageService {
       );
     }
 
-    return this.prisma.message.update({
+    const updatedMessage = await this.prisma.message.update({
       where: {
         id: messageId,
       },
@@ -195,7 +233,15 @@ export class MessageService {
         editedAt: new Date(),
         text,
       },
+      include: {
+        favorites: {
+          where: { userId },
+          select: { userId: true },
+        },
+      },
     });
+
+    return this.mapMessageWithFavorite(updatedMessage);
   }
 
   async searchMessage(
@@ -244,6 +290,12 @@ export class MessageService {
 
     const messages = await this.prisma.message.findMany({
       where,
+      include: {
+        favorites: {
+          where: { userId },
+          select: { userId: true },
+        },
+      },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: 21,
       skip: cursor ? 1 : 0,
@@ -251,7 +303,11 @@ export class MessageService {
     });
 
     const hasMore = messages.length > 20;
-    const items = messages.slice(0, 20);
+
+    const items = messages
+      .slice(0, 20)
+      .map((message) => this.mapMessageWithFavorite(message));
+
     const nextCursor = hasMore ? items[items.length - 1].id : null;
 
     return {
@@ -297,6 +353,17 @@ export class MessageService {
         deletedAt: new Date(),
       },
     });
+  }
+
+  private mapMessageWithFavorite(
+    message: Message & { favorites: { userId: string }[] },
+  ): MessageWithFavorite {
+    const { favorites, ...data } = message;
+
+    return {
+      ...data,
+      isFavorite: favorites.length > 0,
+    };
   }
 
   private async getChatParticipant(userId: string, chatId: string) {

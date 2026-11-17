@@ -5,7 +5,12 @@ import {
 } from '@nestjs/common';
 
 import { PrismaService } from '../../prisma/prisma.service.js';
+import type { Message } from '../../generated/prisma/client.js';
 import { PinMessageDuration } from '../dto/pin-message.dto.js';
+
+type MessageWithFavorite = Message & {
+  isFavorite: boolean;
+};
 
 @Injectable()
 export class MessageActionsService {
@@ -16,7 +21,7 @@ export class MessageActionsService {
     chatId: string,
     messageId: string,
     duration: PinMessageDuration,
-  ) {
+  ): Promise<MessageWithFavorite> {
     await this.getChatParticipant(userId, chatId);
 
     const message = await this.prisma.message.findFirst({
@@ -66,7 +71,7 @@ export class MessageActionsService {
         },
       });
 
-      return tx.message.update({
+      const updatedMessage = await tx.message.update({
         where: { id: message.id },
         data: {
           isPinned: true,
@@ -74,11 +79,23 @@ export class MessageActionsService {
           pinnedUntil,
           pinnedById: userId,
         },
+        include: {
+          favorites: {
+            where: { userId },
+            select: { userId: true },
+          },
+        },
       });
+
+      return this.mapMessageWithFavorite(updatedMessage);
     });
   }
 
-  async unpinMessage(userId: string, chatId: string, messageId: string) {
+  async unpinMessage(
+    userId: string,
+    chatId: string,
+    messageId: string,
+  ): Promise<MessageWithFavorite> {
     await this.getChatParticipant(userId, chatId);
 
     const message = await this.prisma.message.findFirst({
@@ -101,7 +118,7 @@ export class MessageActionsService {
         },
       });
 
-      return tx.message.update({
+      const updatedMessage = await tx.message.update({
         where: {
           id: message.id,
           deletedAt: null,
@@ -112,7 +129,15 @@ export class MessageActionsService {
           pinnedUntil: null,
           pinnedById: null,
         },
+        include: {
+          favorites: {
+            where: { userId },
+            select: { userId: true },
+          },
+        },
       });
+
+      return this.mapMessageWithFavorite(updatedMessage);
     });
   }
 
@@ -121,7 +146,7 @@ export class MessageActionsService {
     chatId: string,
     messageId: string,
     isFavorite: boolean,
-  ) {
+  ): Promise<MessageWithFavorite> {
     await this.getChatParticipant(userId, chatId);
 
     const message = await this.prisma.message.findFirst({
@@ -162,9 +187,27 @@ export class MessageActionsService {
       });
     }
 
+    const result = await this.prisma.message.findUniqueOrThrow({
+      where: { id: messageId },
+      include: {
+        favorites: {
+          where: { userId },
+          select: { userId: true },
+        },
+      },
+    });
+
+    return this.mapMessageWithFavorite(result);
+  }
+
+  private mapMessageWithFavorite(
+    message: Message & { favorites: { userId: string }[] },
+  ): MessageWithFavorite {
+    const { favorites, ...data } = message;
+
     return {
-      messageId,
-      isFavorite,
+      ...data,
+      isFavorite: favorites.length > 0,
     };
   }
 
