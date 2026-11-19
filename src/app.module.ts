@@ -9,6 +9,7 @@ import { ChatSettingsModule } from './chats/chat-settings/chat-settings.module.j
 import { ChatManagenentModule } from './chats/chat-managenent/chat-managenent.module.js';
 import { MessageModule } from './message/message/message.module.js';
 import { MessageActionsModule } from './message/message-actions/message-actions.module.js';
+import { ChatFolderModule } from './chats/chat-folder/chat-folder.module.js';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { MessageActionsModule } from './message/message-actions/message-actions.
     ChatManagenentModule,
     MessageModule,
     MessageActionsModule,
+    ChatFolderModule,
   ],
   controllers: [AppController],
   providers: [AppService],
