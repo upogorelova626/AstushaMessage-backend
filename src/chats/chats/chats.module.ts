@@ -11,5 +11,6 @@ import { HttpModule } from '@nestjs/axios';
   imports: [PrismaModule, AuthModule, HttpModule],
   controllers: [ChatsController],
   providers: [ChatsService, UsersService],
+  exports: [ChatsService],
 })
 export class ChatsModule {}

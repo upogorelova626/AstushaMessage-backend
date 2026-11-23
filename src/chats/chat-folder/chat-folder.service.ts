@@ -4,51 +4,70 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { ChatsService } from '../chats/chats.service.js';
 
 @Injectable()
 export class ChatFolderService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly chats: ChatsService,
+  ) {}
 
-  async getAllFolders(userId: string) {
-    return this.prisma.chatFolder.findMany({
-      where: {
-        userId,
-      },
-      orderBy: {
-        createdAt: 'asc',
-      },
-    });
+  async getAllFolders(userId: string, cookie?: string) {
+    const [folders, chats] = await Promise.all([
+      this.prisma.chatFolder.findMany({
+        where: {
+          userId,
+        },
+        select: {
+          id: true,
+          name: true,
+          createdAt: true,
+          updatedAt: true,
+          items: {
+            select: {
+              chatId: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'asc',
+        },
+      }),
+      this.chats.getAllChats(userId, cookie),
+    ]);
+
+    const chatsMap = new Map(chats.map((chat) => [chat.id, chat]));
+
+    return folders.map((folder) => ({
+      id: folder.id,
+      name: folder.name,
+      createdAt: folder.createdAt,
+      updatedAt: folder.updatedAt,
+      items: folder.items.flatMap((item) => {
+        const chat = chatsMap.get(item.chatId);
+
+        return chat ? [{ chat }] : [];
+      }),
+    }));
   }
 
-  async getFolderWithChats(userId: string, folderId: string) {
+  async getFolderWithChats(userId: string, folderId: string, cookie?: string) {
     const folder = await this.prisma.chatFolder.findFirst({
       where: {
         id: folderId,
         userId,
       },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
         items: {
-          where: {
-            chat: {
-              participants: {
-                some: {
-                  userId,
-                  deletedAt: null,
-                },
-              },
-            },
-          },
-          include: {
-            chat: {
-              select: {
-                id: true,
-                type: true,
-                title: true,
-                createdAt: true,
-                updatedAt: true,
-              },
-            },
+          select: {
+            chatId: true,
           },
         },
       },
@@ -58,7 +77,17 @@ export class ChatFolderService {
       throw new NotFoundException('Папка не найдена');
     }
 
-    return folder;
+    const chats = await this.chats.getAllChats(userId, cookie);
+    const chatsMap = new Map(chats.map((chat) => [chat.id, chat]));
+
+    return {
+      ...folder,
+      items: folder.items.flatMap((item) => {
+        const chat = chatsMap.get(item.chatId);
+
+        return chat ? [{ chat }] : [];
+      }),
+    };
   }
 
   async createNewFolder(userId: string, name: string, chatIds: string[]) {
@@ -83,17 +112,19 @@ export class ChatFolderService {
       throw new ConflictException('Папка с таким названием уже существует');
     }
 
+    const uniqueChatIds = [...new Set(chatIds)];
+
     const chatsCount = await this.prisma.chatParticipant.count({
       where: {
         userId,
         chatId: {
-          in: chatIds,
+          in: uniqueChatIds,
         },
         deletedAt: null,
       },
     });
 
-    if (chatsCount !== new Set(chatIds).size) {
+    if (chatsCount !== uniqueChatIds.length) {
       throw new NotFoundException('Один или несколько чатов не найдены');
     }
 
@@ -102,7 +133,7 @@ export class ChatFolderService {
         userId,
         name: folderName,
         items: {
-          create: [...new Set(chatIds)].map((chatId) => ({
+          create: uniqueChatIds.map((chatId) => ({
             chat: {
               connect: {
                 id: chatId,

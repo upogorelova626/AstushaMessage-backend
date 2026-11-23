@@ -3,14 +3,14 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
   Req,
   UseGuards,
-  HttpCode,
-  HttpStatus,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -26,10 +26,9 @@ import {
 
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard.js';
 import type { AuthenticatedRequest } from '../../auth/types/authenticated-request.type.js';
-import { ChatFolderService } from './chat-folder.service.js';
 import { CreateChatFolderDto } from '../dto/create-folder.dto.js';
 import { UpdateChatFolderDto } from '../dto/rename-folder.dto.js';
-import { AddChatToFolderDto } from '../dto/add-chat-to-folder.dto.js';
+import { ChatFolderService } from './chat-folder.service.js';
 
 @Controller('chat-folders')
 @ApiTags('Chat folders')
@@ -47,7 +46,10 @@ export class ChatFolderController {
     description: 'Список папок успешно получен',
   })
   getAll(@Req() request: AuthenticatedRequest) {
-    return this.chatFolderService.getAllFolders(request.user.id);
+    return this.chatFolderService.getAllFolders(
+      request.user.id,
+      request.headers.cookie,
+    );
   }
 
   @Get(':folderId')
@@ -65,7 +67,11 @@ export class ChatFolderController {
     @Req() request: AuthenticatedRequest,
     @Param('folderId', ParseUUIDPipe) folderId: string,
   ) {
-    return this.chatFolderService.getFolderWithChats(request.user.id, folderId);
+    return this.chatFolderService.getFolderWithChats(
+      request.user.id,
+      folderId,
+      request.headers.cookie,
+    );
   }
 
   @Post()
@@ -136,7 +142,7 @@ export class ChatFolderController {
     return this.chatFolderService.deleteFolder(request.user.id, folderId);
   }
 
-  @Post(':folderId/chats')
+  @Post(':folderId/chats/:chatId')
   @ApiOperation({
     summary: 'Добавить чат в папку',
   })
@@ -152,12 +158,12 @@ export class ChatFolderController {
   addChat(
     @Req() request: AuthenticatedRequest,
     @Param('folderId', ParseUUIDPipe) folderId: string,
-    @Body() dto: AddChatToFolderDto,
+    @Param('chatId', ParseUUIDPipe) chatId: string,
   ) {
     return this.chatFolderService.addChatToFolder(
       request.user.id,
       folderId,
-      dto.chatId,
+      chatId,
     );
   }
 
