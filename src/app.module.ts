@@ -10,6 +10,7 @@ import { ChatManagenentModule } from './chats/chat-managenent/chat-managenent.mo
 import { MessageModule } from './message/message/message.module.js';
 import { MessageActionsModule } from './message/message-actions/message-actions.module.js';
 import { ChatFolderModule } from './chats/chat-folder/chat-folder.module.js';
+import { ArchivedChatsModule } from './chats/archived-chats/archived-chats.module.js';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { ChatFolderModule } from './chats/chat-folder/chat-folder.module.js';
     MessageModule,
     MessageActionsModule,
     ChatFolderModule,
+    ArchivedChatsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
